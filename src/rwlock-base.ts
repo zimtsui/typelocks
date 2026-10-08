@@ -117,7 +117,7 @@ export abstract class RWLockBase {
 
     protected abstract flush(): void;
 
-    public async raiiRead(signal?: AbortSignal): Promise<Disposable> {
+    public async acquireReadRaii(signal?: AbortSignal): Promise<Disposable> {
         await this.acquireRead(signal);
         return {
             [Symbol.dispose]: (): void => {
@@ -126,7 +126,7 @@ export abstract class RWLockBase {
         };
     }
 
-    public async raiiWrite(signal?: AbortSignal): Promise<Disposable> {
+    public async acquireWriteRaii(signal?: AbortSignal): Promise<Disposable> {
         await this.acquireWrite(signal);
         return {
             [Symbol.dispose]: (): void => {
