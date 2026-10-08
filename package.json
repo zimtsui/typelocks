@@ -1,6 +1,6 @@
 {
   "name": "@zimtsui/typelocks",
-  "version": "0.0.28",
+  "version": "0.0.29",
   "description": "",
   "exports": "./build/exports.js",
   "type": "module",
