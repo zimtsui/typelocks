@@ -1,36 +1,42 @@
-import { StateError } from './exceptions.ts';
 
 
 export class Semaphore<T> implements AsyncIterableIterator<T, never, void> {
-    protected consumers: PromiseWithResolvers<T>[] = [];
-    protected queue: T[] = [];
+    protected consumers: [PromiseWithResolvers<T>, AbortSignal][] = [];
+    protected products: T[] = [];
 
     protected flush(): void {
-        if (this.queue.length && this.consumers.length)
-            this.consumers.shift()!.resolve(this.queue.shift()!);
+        this.consumers = this.consumers.filter(([pwr, signal]) => !signal.aborted);
+        while (this.products.length && this.consumers.length) {
+            const [pwr] = this.consumers.shift()!;
+            pwr.resolve(this.products.shift()!);
+        }
     }
 
     public getSize(): number {
-        return this.queue.length;
+        return this.products.length;
     }
 
-    public async decrease(): Promise<T> {
+    public async decrease(signal?: AbortSignal): Promise<T> {
+        signal?.throwIfAborted();
+        const ac = new AbortController();
         const pwr = Promise.withResolvers<T>();
-        this.consumers.push(pwr);
+        signal?.addEventListener('abort', () => pwr.reject(signal.reason), { signal: ac.signal });
+        this.consumers.push([pwr, signal ?? new AbortController().signal]);
         this.flush();
-        return await pwr.promise;
+        return await pwr.promise.finally(() => ac.abort());
     }
 
     /**
-     * @throws {@link StateError}
+     * @throws {@link RangeError}
      */
     public decreaseSync(): T {
-        if (this.queue.length) {} else throw new StateError();
-        return this.queue.shift()!;
+        this.flush();
+        if (this.products.length) {} else throw new RangeError();
+        return this.products.shift()!;
     }
 
     public increase(x: T): void {
-        this.queue.push(x);
+        this.products.push(x);
         this.flush();
     }
 
@@ -41,12 +47,26 @@ export class Semaphore<T> implements AsyncIterableIterator<T, never, void> {
         };
     }
 
-    public unblock(e: unknown): void {
-        for (const consumer of this.consumers) consumer.reject(e);
+    public abort(e: unknown): void {
+        for (const [pwr] of this.consumers) pwr.reject(e);
         this.consumers = [];
     }
 
     public [Symbol.asyncIterator]() {
         return this;
+    }
+}
+
+export namespace Semaphore {
+
+    export class Void extends Semaphore<void> {
+        public async decreaseRaii(): Promise<Disposable> {
+            await this.decrease();
+            return {
+                [Symbol.dispose]: (): void => {
+                    this.increase();
+                },
+            };
+        }
     }
 }

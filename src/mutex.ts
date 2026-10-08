@@ -1,16 +1,10 @@
 import { Semaphore } from './semaphore.ts';
-import { StateError } from './exceptions.ts';
 
 
 /**
- * A mutex is initially locked.
+ * A mutex is initially acquired.
  */
 export class Mutex<T> implements AsyncIterableIterator<T, never, void> {
-    public static release(): Mutex<void> {
-        const mutex = new Mutex<void>();
-        mutex.release();
-        return mutex;
-    }
 
     protected sem = new Semaphore<T>();
 
@@ -18,22 +12,22 @@ export class Mutex<T> implements AsyncIterableIterator<T, never, void> {
         return !this.sem.getSize();
     }
 
-    public acquire(): Promise<T> {
-        return this.sem.decrease();
+    public acquire(signal?: AbortSignal): Promise<T> {
+        return this.sem.decrease(signal);
     }
 
     /**
-     * @throws {@link StateError}
+     * @throws {@link RangeError}
      */
     public acquireSync(): T {
         return this.sem.decreaseSync();
     }
 
     /**
-     * @throws {@link StateError}
+     * @throws {@link RangeError}
      */
     public release(x: T): void {
-        if (this.isAcquired()) {} else throw new StateError();
+        if (this.isAcquired()) {} else throw new RangeError();
         this.sem.increase(x);
     }
 
@@ -41,8 +35,8 @@ export class Mutex<T> implements AsyncIterableIterator<T, never, void> {
         if (this.isAcquired()) this.release(x);
     }
 
-    public unblock(e: unknown): void {
-        return this.sem.unblock(e);
+    public abort(e: unknown): void {
+        return this.sem.abort(e);
     }
 
     public next(): Promise<IteratorYieldResult<T>> {
@@ -51,5 +45,27 @@ export class Mutex<T> implements AsyncIterableIterator<T, never, void> {
 
     public [Symbol.asyncIterator]() {
         return this;
+    }
+}
+
+export namespace Mutex {
+
+    /**
+     * A void mutex is initially released.
+     */
+    export class Void extends Mutex<void> {
+        public constructor() {
+            super();
+            this.release();
+        }
+
+        public async acquireRaii(signal?: AbortSignal): Promise<Disposable> {
+            await this.acquire(signal);
+            return {
+                [Symbol.dispose]: (): void => {
+                    this.release();
+                },
+            };
+        }
     }
 }

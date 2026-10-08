@@ -1,5 +1,4 @@
 import { RWLockBase } from './rwlock-base.ts';
-import { StateError } from './exceptions.ts';
 
 
 /**
@@ -7,22 +6,27 @@ import { StateError } from './exceptions.ts';
  */
 export class RWLock extends RWLockBase {
     protected flush(): void {
+        this.readers = this.readers.filter(([pwr, signal]) => !signal.aborted);
+        this.writers = this.writers.filter(([pwr, signal]) => !signal.aborted);
         if (!this.writing && this.readers.length) {
             this.reading += this.readers.length;
-            for (const reader of this.readers) reader.resolve();
+            for (const [pwr] of this.readers) pwr.resolve();
             this.readers = [];
         } else if (!this.reading && !this.writing && this.writers.length) {
             this.writing = true;
-            this.writers.shift()!.resolve();
+            const [pwr] = this.writers.shift()!;
+            pwr.resolve();
         }
     }
 
     public override acquireReadSync(): void {
-        if (!this.writing) {} else throw new StateError();
+        this.flush();
+        if (!this.writing) {} else throw new RangeError();
         this.reading++;
     }
 
     public override acquireReadTry(): void {
+        this.flush();
         if (!this.writing) this.reading++;
     }
 }

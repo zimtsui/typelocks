@@ -2,33 +2,40 @@ import { Mutex } from './mutex.ts';
 
 
 export class ConditionVariable {
-	protected listeners: PromiseWithResolvers<void>[] = [];
-	public mutex = new Mutex<void>();
+	protected listeners: [PromiseWithResolvers<void>, AbortSignal][] = [];
+	public mutex = new Mutex.Void();
 
-	public async wait(): Promise<void> {
+	public async wait(signal?: AbortSignal): Promise<void> {
+		signal?.throwIfAborted();
+		const ac = new AbortController();
 		this.mutex.release();
 		const pwr = Promise.withResolvers<void>();
-		this.listeners.push(pwr);
+		signal?.addEventListener('abort', () => pwr.reject(signal.reason), { signal: ac.signal });
+		this.listeners.push([pwr, signal ?? new AbortController().signal]);
 		try {
 			await pwr.promise;
+			await this.mutex.acquire(signal);
 		} finally {
-			await this.mutex.acquire();
+			ac.abort();
 		}
 	}
 
 	public signal(): void {
-		if (this.listeners.length)
-			this.listeners.shift()!.resolve();
+		this.listeners = this.listeners.filter(([pwr, signal]) => !signal.aborted);
+		if (this.listeners.length) {
+			const [pwr] = this.listeners.shift()!;
+			pwr.resolve();
+		}
 	}
 
 	public broadcast(): void {
-		for (const listener of this.listeners) listener.resolve();
+		for (const [pwr] of this.listeners) pwr.resolve();
 		this.listeners = [];
 	}
 
-	public unblock(e: unknown): void {
-		this.mutex.unblock(e);
-		for (const listener of this.listeners) listener.reject(e);
+	public abort(e: unknown): void {
+		this.mutex.abort(e);
+		for (const [pwr] of this.listeners) pwr.reject(e);
 		this.listeners = [];
 	}
 }
