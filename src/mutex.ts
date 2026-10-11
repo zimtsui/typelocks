@@ -67,5 +67,14 @@ export namespace Mutex {
                 },
             };
         }
+
+        public acquireRaiiSync(): Disposable {
+            this.acquireSync();
+            return {
+                [Symbol.dispose]: (): void => {
+                    this.release();
+                },
+            };
+        }
     }
 }

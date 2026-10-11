@@ -126,8 +126,26 @@ export abstract class RWLockBase {
         };
     }
 
+    public acquireReadRaiiSync(): Disposable {
+        this.acquireReadSync();
+        return {
+            [Symbol.dispose]: (): void => {
+                this.releaseRead();
+            },
+        };
+    }
+
     public async acquireWriteRaii(signal?: AbortSignal): Promise<Disposable> {
         await this.acquireWrite(signal);
+        return {
+            [Symbol.dispose]: (): void => {
+                this.releaseWrite();
+            },
+        };
+    }
+
+    public acquireWriteRaiiSync(): Disposable {
+        this.acquireWriteSync();
         return {
             [Symbol.dispose]: (): void => {
                 this.releaseWrite();

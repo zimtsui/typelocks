@@ -106,6 +106,13 @@ export class FiniteSemaphore<T> implements AsyncIterableIterator<T, never, void>
 export namespace FiniteSemaphore {
 
     export class Void extends FiniteSemaphore<void> {
+        public constructor(capacity: number, initialSize: number = 0) {
+            super(capacity);
+            if (Number.isSafeInteger(initialSize) && initialSize >= 0 && initialSize <= capacity) {} else
+                throw new Error('Invalid initial size.');
+            while (initialSize--) this.increase();
+        }
+
         public async decreaseRaii(signal?: AbortSignal): Promise<AsyncDisposable> {
             await this.decrease(signal);
             return {
@@ -115,8 +122,26 @@ export namespace FiniteSemaphore {
             };
         }
 
+        public decreaseRaiiSync(): AsyncDisposable {
+            this.decreaseSync();
+            return {
+                [Symbol.asyncDispose]: async (): Promise<void> => {
+                    await this.increase();
+                },
+            };
+        }
+
         public async increaseRaii(signal?: AbortSignal): Promise<AsyncDisposable> {
             await this.increase(undefined, signal);
+            return {
+                [Symbol.asyncDispose]: async (): Promise<void> => {
+                    await this.decrease();
+                },
+            };
+        }
+
+        public increaseRaiiSync(): AsyncDisposable {
+            this.increaseSync();
             return {
                 [Symbol.asyncDispose]: async (): Promise<void> => {
                     await this.decrease();

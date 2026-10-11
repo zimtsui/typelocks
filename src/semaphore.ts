@@ -60,8 +60,23 @@ export class Semaphore<T> implements AsyncIterableIterator<T, never, void> {
 export namespace Semaphore {
 
     export class Void extends Semaphore<void> {
+        public constructor(initialSize: number = 0) {
+            super();
+            if (Number.isSafeInteger(initialSize) && initialSize >= 0) {} else
+                throw new Error('Invalid initial size.');
+            while (initialSize--) this.increase();
+        }
+
         public async decreaseRaii(): Promise<Disposable> {
             await this.decrease();
+            return {
+                [Symbol.dispose]: (): void => {
+                    this.increase();
+                },
+            };
+        }
+        public decreaseRaiiSync(): Disposable {
+            this.decreaseSync();
             return {
                 [Symbol.dispose]: (): void => {
                     this.increase();
