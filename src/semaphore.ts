@@ -75,6 +75,10 @@ export namespace Semaphore {
                 },
             };
         }
+
+        /**
+         * @throws {@link RangeError}
+         */
         public decreaseRaiiSync(): Disposable {
             this.decreaseSync();
             return {

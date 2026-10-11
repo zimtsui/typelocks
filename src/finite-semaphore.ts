@@ -122,6 +122,9 @@ export namespace FiniteSemaphore {
             };
         }
 
+        /**
+         * @throws {@link RangeError}
+         */
         public decreaseRaiiSync(): AsyncDisposable {
             this.decreaseSync();
             return {
@@ -140,6 +143,9 @@ export namespace FiniteSemaphore {
             };
         }
 
+        /**
+         * @throws {@link RangeError}
+         */
         public increaseRaiiSync(): AsyncDisposable {
             this.increaseSync();
             return {

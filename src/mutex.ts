@@ -68,6 +68,9 @@ export namespace Mutex {
             };
         }
 
+        /**
+         * @throws {@link RangeError}
+         */
         public acquireRaiiSync(): Disposable {
             this.acquireSync();
             return {

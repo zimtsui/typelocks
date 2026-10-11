@@ -126,6 +126,9 @@ export abstract class RWLockBase {
         };
     }
 
+    /**
+     * @throws {@link RangeError}
+     */
     public acquireReadRaiiSync(): Disposable {
         this.acquireReadSync();
         return {
@@ -144,6 +147,9 @@ export abstract class RWLockBase {
         };
     }
 
+    /**
+     * @throws {@link RangeError}
+     */
     public acquireWriteRaiiSync(): Disposable {
         this.acquireWriteSync();
         return {
