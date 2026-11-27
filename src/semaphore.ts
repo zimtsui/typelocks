@@ -67,8 +67,8 @@ export namespace Semaphore {
             while (initialSize--) this.increase();
         }
 
-        public async decreaseRaii(): Promise<Disposable> {
-            await this.decrease();
+        public async decreaseRaii(signal?: AbortSignal): Promise<Disposable> {
+            await this.decrease(signal);
             return {
                 [Symbol.dispose]: (): void => {
                     this.increase();
