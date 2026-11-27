@@ -6,11 +6,11 @@
 
 如果协程锁这么实现的话，unlock 就得写成异步函数。
 
-# getState
+# 同步的 state getter 函数
 
-同步的 getState 函数有意义，仅当
+同步的 state getter 有意义，仅当
 
-- getState 不会在不一致的中间状态被调用。
-- getState 返回时例程不会切出去。
+-   state getter 不会在不一致的中间状态被调用。
+-   state getter 返回时例程不会切出去。
 
-线程锁的 getState 返回时可能切到别的线程去，所以不能 getState。用互斥锁实现的协程读写锁，getState 可能在中间状态被调用，所以也不能 getState。只有原生实现的协程锁，才能 getState。
+线程锁的 state getter 返回时可能切到别的线程去，所以不能调用 state getter。用互斥锁实现的协程读写锁，state getter 可能在中间状态被调用，所以也不能调用 state getter。只有原生实现的协程锁，才能调用 state getter。
