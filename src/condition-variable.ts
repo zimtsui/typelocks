@@ -7,17 +7,16 @@ export class ConditionVariable {
 
 	public async wait(signal?: AbortSignal): Promise<void> {
 		signal?.throwIfAborted();
-		const ac = new AbortController();
+		using dk = new DisposableStack();
 		this.mutex.release();
 		const pwr = Promise.withResolvers<void>();
-		signal?.addEventListener('abort', () => pwr.reject(signal.reason), { signal: ac.signal });
+		signal?.addEventListener('abort', dk.adopt(
+			() => pwr.reject(signal.reason),
+			listener => signal.removeEventListener('abort', listener),
+		));
 		this.listeners.push([pwr, signal ?? new AbortController().signal]);
-		try {
-			await pwr.promise;
-			await this.mutex.acquire(signal);
-		} finally {
-			ac.abort();
-		}
+		await pwr.promise;
+		await this.mutex.acquire(signal);
 	}
 
 	public signal(): void {

@@ -18,12 +18,15 @@ export abstract class RWLockBase {
 
     public async acquireRead(signal?: AbortSignal): Promise<void> {
         signal?.throwIfAborted();
-        const ac = new AbortController();
+        using dk = new DisposableStack();
         const pwr = Promise.withResolvers<void>();
-        signal?.addEventListener('abort', () => pwr.reject(signal.reason), { signal: ac.signal });
+        signal?.addEventListener('abort', dk.adopt(
+            () => pwr.reject(signal.reason),
+            listener => signal.removeEventListener('abort', listener),
+        ));
         this.readers.push([pwr, signal ?? new AbortController().signal]);
         this.flush();
-        await pwr.promise.finally(() => ac.abort());
+        await pwr.promise;
     }
 
     /**
@@ -35,19 +38,18 @@ export abstract class RWLockBase {
 
     public async acquireWrite(signal?: AbortSignal): Promise<void> {
         signal?.throwIfAborted();
-        const ac = new AbortController();
+        using dk = new DisposableStack();
         const pwr = Promise.withResolvers<void>();
-        signal?.addEventListener(
-            'abort',
+        signal?.addEventListener('abort', dk.adopt(
             () => {
                 pwr.reject(signal.reason);
                 this.flush();
             },
-            { signal: ac.signal },
-        );
+            listener => signal.removeEventListener('abort', listener),
+        ));
         this.writers.push([pwr, signal ?? new AbortController().signal]);
         this.flush();
-        await pwr.promise.finally(() => ac.abort());
+        await pwr.promise;
     }
 
     /**

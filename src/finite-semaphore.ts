@@ -35,12 +35,15 @@ export class FiniteSemaphore<T> implements AsyncIterableIterator<T, never, void>
 
     public async decrease(signal?: AbortSignal): Promise<T> {
         signal?.throwIfAborted();
-        const ac = new AbortController();
+        using dk = new DisposableStack();
         const pwr = Promise.withResolvers<T>();
-        signal?.addEventListener('abort', () => pwr.reject(signal.reason), { signal: ac.signal });
+        signal?.addEventListener('abort', dk.adopt(
+            () => pwr.reject(signal.reason),
+            listener => signal.removeEventListener('abort', listener),
+        ));
         this.consumers.push([pwr, signal ?? new AbortController().signal]);
         this.flush();
-        return await pwr.promise.finally(() => ac.abort());
+        return await pwr.promise;
     }
 
     /**
@@ -61,12 +64,15 @@ export class FiniteSemaphore<T> implements AsyncIterableIterator<T, never, void>
 
     public async increase(x: T, signal?: AbortSignal): Promise<void> {
         signal?.throwIfAborted();
-        const ac = new AbortController();
+        using dk = new DisposableStack();
         const pwr = Promise.withResolvers<void>();
-        signal?.addEventListener('abort', () => pwr.reject(signal.reason), { signal: ac.signal });
+        signal?.addEventListener('abort', dk.adopt(
+            () => pwr.reject(signal.reason),
+            listener => signal.removeEventListener('abort', listener),
+        ));
         this.producers.push([pwr, signal ?? new AbortController().signal, x]);
         this.flush();
-        await pwr.promise.finally(() => ac.abort());
+        await pwr.promise;
     }
 
     /**

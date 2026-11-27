@@ -17,13 +17,16 @@ export class Semaphore<T> implements AsyncIterableIterator<T, never, void> {
     }
 
     public async decrease(signal?: AbortSignal): Promise<T> {
+        using dk = new DisposableStack();
         signal?.throwIfAborted();
-        const ac = new AbortController();
         const pwr = Promise.withResolvers<T>();
-        signal?.addEventListener('abort', () => pwr.reject(signal.reason), { signal: ac.signal });
+        signal?.addEventListener('abort', dk.adopt(
+            () => pwr.reject(signal?.reason),
+            listener => signal.removeEventListener('abort', listener),
+        ));
         this.consumers.push([pwr, signal ?? new AbortController().signal]);
         this.flush();
-        return await pwr.promise.finally(() => ac.abort());
+        return await pwr.promise;
     }
 
     /**
